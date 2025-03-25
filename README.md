@@ -68,3 +68,4 @@ As seguintes visualizações são geradas:
 
 Contato
 [Murillo Sezerino] – murillosze@gmail.com
+Linkedin: https://www.linkedin.com/in/murillosezerino/
