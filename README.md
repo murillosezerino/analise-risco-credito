@@ -1,71 +1,87 @@
-Análise de Risco de Crédito
+# Análise de Risco de Crédito
 
-Este projeto realiza uma análise de risco de crédito utilizando técnicas de aprendizado de máquina. O objetivo é prever o risco associado a clientes com base em seus dados financeiros e pessoais.
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python)
+![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-1.4-F7931E?logo=scikitlearn)
 
-Sobre o Projeto
+Análise de risco de crédito com 3 modelos de Machine Learning. Compara **Random Forest**, **Gradient Boosting** e **Logistic Regression** em 1.000 registros do dataset German Credit.
 
-A análise inclui:
+## Resultados
 
-- Pré-processamento de dados (limpeza, codificação, normalização)
-- Treinamento de três modelos: Random Forest, Gradient Boosting e Regressão Logística
-- Avaliação de desempenho com métricas de acurácia, AUC e matriz de confusão
-- Visualização da curva ROC e da importância das variáveis
-- Validação cruzada com o melhor modelo
+| Modelo | Acurácia | AUC-ROC |
+|---|---|---|
+| **Random Forest** | 78.0% | **0.784** |
+| Gradient Boosting | 75.5% | 0.779 |
+| Logistic Regression | 76.5% | 0.742 |
 
-Tecnologias Utilizadas
+**Cross-validation (Random Forest):** 73.5% ± 2.0%
 
-- Python 3
-- Pandas
-- NumPy
-- Scikit-learn
-- Matplotlib
-- Seaborn
-
-Estrutura do Projeto
+### Feature Importance
 
 ```
-analise-risco-credito/
-├── dados/                 # Arquivo CSV com os dados brutos
-├── src/                   # Código-fonte da análise
-├── imgs/                  # Gráficos e imagens geradas
-├── README.md              # Documentação
-├── requirements.txt       # Bibliotecas utilizadas
-└── .gitignore             # Arquivos ignorados pelo Git
+Credit amount             0.2462  ████████████████████
+Age                       0.1833  ███████████████
+Duration                  0.1489  ████████████
+Checking account          0.1329  ███████████
+Purpose                   0.0904  ███████
+Saving accounts           0.0708  ██████
+Job                       0.0520  ████
+Housing                   0.0455  ████
+Sex                       0.0301  ██
 ```
 
-Como Executar
+## Stack
 
-1. Clone o repositório:
+- **Python** — linguagem principal
+- **Scikit-Learn** — Random Forest, Gradient Boosting, Logistic Regression, cross-validation
+- **Pandas / NumPy** — manipulação de dados
+- **Matplotlib / Seaborn** — visualizações (ROC curve, confusion matrix, feature importance)
+
+## Como Executar
+
 ```bash
-git clone https://github.com/seu-usuario/analise-risco-credito.git
+# 1. Clonar
+git clone https://github.com/murillosezerino/analise-risco-credito.git
 cd analise-risco-credito
-```
 
-2. Crie um ambiente virtual e ative:
-```bash
-python -m venv venv
-source venv/bin/activate  # No Windows: venv\Scripts\activate
-```
-
-3. Instale as dependências:
-```bash
+# 2. Instalar dependências
 pip install -r requirements.txt
-```
 
-4. Execute o script:
-```bash
+# 3. Rodar análise (treina 3 modelos e gera gráficos)
 python src/analise_risco_credito.py
+
+# 4. Rodar testes
+pytest tests/ -v
 ```
 
-Exemplos de Saída
+### Saídas geradas
 
-As seguintes visualizações são geradas:
+- **Matriz de Confusão** — heatmap do melhor modelo (Random Forest)
+- **Curva ROC** — comparativo dos 3 modelos
+- **Feature Importance** — barplot das variáveis mais preditivas
+- **Comparativo** — acurácia e AUC lado a lado
 
-- Matriz de Confusão
-- Curva ROC para comparação entre modelos
-- Importância das variáveis
-- Comparativo de métricas (Acurácia e AUC)
+## Estrutura do Projeto
 
-Contato
-[Murillo Sezerino] – murillosze@gmail.com
-Linkedin: https://www.linkedin.com/in/murillosezerino/
+```
+├── src/
+│   └── analise_risco_credito.py  # Script completo: load → preprocess → train → evaluate
+├── dados/
+│   └── dados_credito.csv         # German Credit dataset (1000 registros)
+├── tests/
+│   └── test_data.py              # Testes de validação do dataset
+├── imgs/                         # Gráficos gerados
+├── requirements.txt
+└── .github/workflows/
+    └── ci.yml                    # CI/CD automatizado
+```
+
+## Testes
+
+```bash
+pytest tests/ -v
+# 6 testes: carregamento, colunas, target binário, scaling, train/test split
+```
+
+## Licença
+
+MIT
