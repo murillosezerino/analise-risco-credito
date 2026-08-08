@@ -1,5 +1,8 @@
 # Análise de Risco de Crédito — Comparative Study
 
+[![CI](https://github.com/murillosezerino/analise-risco-credito/actions/workflows/ci.yml/badge.svg)](https://github.com/murillosezerino/analise-risco-credito/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+
 > Technical study: comparative evaluation of three classical ML models for credit risk classification, with cross-validation on the best performer.
 
 A focused exercise in baseline modeling for credit risk. Three models — Random Forest, Gradient Boosting and Logistic Regression — are trained on the same dataset and evaluated head-to-head on accuracy, AUC-ROC and confusion matrix. The best model is then validated with k-fold cross-validation and feature importance is examined.
@@ -21,20 +24,40 @@ This project is the *baseline study* that preceded my [credit-scoring](https://g
 
 ```
 analise-risco-credito/
-├── notebooks/            # Exploration and modeling
 ├── src/
-│   ├── preprocessing.py
-│   ├── models.py         # RF, GB, LogReg
-│   └── evaluation.py     # Metrics + plots
-└── README.md
+│   └── analise_risco_credito.py   # pipeline: preprocess, treino dos 3 modelos, avaliacao e plots
+├── dados/
+│   └── dados_credito.csv          # dataset (estilo German Credit)
+├── imgs/                          # figuras geradas (ROC, matriz de confusao, importancia)
+└── tests/                         # test_data.py
 ```
 
 ## How to run
 
 ```bash
 pip install -r requirements.txt
-jupyter notebook notebooks/analysis.ipynb
+python src/analise_risco_credito.py   # treina os 3 modelos e regenera as figuras em imgs/
 ```
+
+## Results
+
+Three models trained on the same split and compared head-to-head. The best performer (Random Forest) is validated with k-fold cross-validation, and feature importance is examined.
+
+**Model comparison**
+
+![Comparacao de metricas](imgs/comparacao_metricas.png)
+
+**Comparative ROC curves**
+
+![Curva ROC dos modelos](imgs/curva_roc_modelos.png)
+
+**Confusion matrix — Random Forest**
+
+![Matriz de confusao](imgs/matriz_confusao_rf.png)
+
+**Feature importance — Random Forest**
+
+![Importancia das variaveis](imgs/importancia_variaveis_rf.png)
 
 ## Status
 
@@ -42,5 +65,5 @@ Study repository — meant as a baseline comparison, not a production model. See
 
 ## Author
 
-Murillo Sezerino — Analytics Engineer · Data Engineer
+Murillo Sezerino — Data Engineer & Analytics
 [murillosezerino.com](https://murillosezerino.com) · [LinkedIn](https://linkedin.com/in/murillosezerino)
