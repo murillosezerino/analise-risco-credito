@@ -25,10 +25,12 @@ This project is the *baseline study* that preceded my [credit-scoring](https://g
 ```
 analise-risco-credito/
 ├── src/
-│   └── analise_risco_credito.py   # pipeline: preprocess, treino dos 3 modelos, avaliacao e plots
+│   └── analise_risco_credito.py   # preprocess (one-hot + scale), treino dos 3 modelos, plots
+├── scripts/
+│   └── make_dataset.py            # gera o dataset sintetico (schema German Credit)
 ├── dados/
-│   └── dados_credito.csv          # dataset (estilo German Credit)
-├── imgs/                          # figuras geradas (ROC, matriz de confusao, importancia)
+│   └── dados_credito.csv          # dataset sintetico, valores crus (categoricas em texto)
+├── imgs/                          # figuras geradas pelo script (ROC, matriz de confusao, importancia)
 └── tests/                         # test_data.py
 ```
 
@@ -36,8 +38,13 @@ analise-risco-credito/
 
 ```bash
 pip install -r requirements.txt
+python scripts/make_dataset.py        # (opcional) regenera o dataset sintetico
 python src/analise_risco_credito.py   # treina os 3 modelos e regenera as figuras em imgs/
 ```
+
+## Dataset
+
+Synthetic data generated with the German Credit schema (`scripts/make_dataset.py`), so the study is fully reproducible offline. Values are raw (text categories, natural-scale numerics); all preprocessing (one-hot encoding of nominal features, scaling of numeric ones) happens in the pipeline. Metrics here are illustrative, not benchmarks.
 
 ## Results
 

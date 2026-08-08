@@ -1,44 +1,46 @@
-import pandas as pd
-import numpy as np
+from sklearn.model_selection import train_test_split
+
+from src.analise_risco_credito import load_data, preprocess
 
 
-def _load_dataset():
-    return pd.read_csv("dados/dados_credito.csv", index_col=0)
-
-
-class TestDataset:
+class TestRawDataset:
     def test_loads_successfully(self):
-        df = _load_dataset()
-        assert isinstance(df, pd.DataFrame)
+        df = load_data()
         assert len(df) > 0
 
     def test_has_required_columns(self):
-        df = _load_dataset()
-        required = {"Age", "Sex", "Job", "Housing", "Credit amount", "Duration", "Risk"}
+        df = load_data()
+        required = {
+            "Age", "Sex", "Job", "Housing", "Saving accounts",
+            "Checking account", "Credit amount", "Duration", "Purpose", "Risk",
+        }
         assert required.issubset(set(df.columns))
 
-    def test_risk_is_binary(self):
-        df = _load_dataset()
-        assert set(df["Risk"].unique()).issubset({0, 1})
-
-    def test_no_null_risk(self):
-        df = _load_dataset()
-        assert df["Risk"].isna().sum() == 0
+    def test_risk_is_raw_labels(self):
+        df = load_data()
+        assert set(df["Risk"].unique()).issubset({"good", "bad"})
 
 
 class TestPreprocessing:
-    def test_standard_scaling_applied(self):
-        df = _load_dataset()
-        # Age should be standardized (mean ~0, std ~1)
-        assert abs(df["Age"].mean()) < 0.5
-        assert 0.5 < df["Age"].std() < 1.5
+    def test_target_is_binary(self):
+        X, y = preprocess(load_data())
+        assert set(y.unique()).issubset({0, 1})
+
+    def test_no_nulls_and_all_numeric(self):
+        X, y = preprocess(load_data())
+        assert X.isna().sum().sum() == 0
+        assert not any(str(dt) == "object" for dt in X.dtypes)
+
+    def test_numeric_features_are_scaled(self):
+        X, y = preprocess(load_data())
+        # Age padronizada (media ~0, desvio ~1)
+        assert abs(X["Age"].mean()) < 0.5
+        assert 0.5 < X["Age"].std() < 1.5
 
     def test_train_test_split_shapes(self):
-        from sklearn.model_selection import train_test_split
-
-        df = _load_dataset()
-        X = df.drop("Risk", axis=1)
-        y = df["Risk"]
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        X, y = preprocess(load_data())
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
         assert len(X_train) + len(X_test) == len(X)
         assert len(y_train) + len(y_test) == len(y)

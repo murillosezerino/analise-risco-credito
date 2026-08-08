@@ -1,123 +1,173 @@
+"""
+Analise de Risco de Credito — estudo comparativo de 3 modelos classicos.
 
-# Análise de Risco de Crédito
+Pre-processamento correto:
+- One-hot nas categoricas nominais (Sex, Housing, Saving/Checking account, Purpose)
+- Job mantido como ordinal (0 a 3)
+- StandardScaler apenas nas numericas continuas (Age, Credit amount, Duration)
+- Risk mapeado: good -> 0, bad -> 1
 
-# 1. Importação das Bibliotecas
-import pandas as pd
-import numpy as np
+Backend Agg para rodar headless (CI, servidores sem display). As figuras sao
+salvas em imgs/ (o script pode ser reexecutado para regenera-las).
+"""
+
+import logging
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score, RocCurveDisplay
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.metrics import (
+    accuracy_score, classification_report, confusion_matrix,
+    roc_auc_score, RocCurveDisplay,
+)
+from sklearn.preprocessing import StandardScaler
 
-# 2. Carregamento dos Dados
-df = pd.read_csv("dados_credito.csv")
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
-# 3. Pré-processamento dos Dados
-# Convert categorical variables to numeric using Label Encoding
-le = LabelEncoder()
-categorical_columns = ['Sex', 'Housing', 'Saving accounts', 'Checking account', 'Purpose', 'Risk']
-for column in categorical_columns:
-    df[column] = le.fit_transform(df[column].astype(str))
+BASE = Path(__file__).resolve().parent.parent
+DATA_PATH = BASE / "dados" / "dados_credito.csv"
+IMGS_DIR = BASE / "imgs"
 
-# Fill missing values with median for numeric columns
-numeric_columns = ['Age', 'Job', 'Credit amount', 'Duration']
-df[numeric_columns] = df[numeric_columns].fillna(df[numeric_columns].median())
+NOMINAL = ["Sex", "Housing", "Saving accounts", "Checking account", "Purpose"]
+NUMERIC = ["Age", "Credit amount", "Duration"]  # Job fica como ordinal
 
-# Padronização das variáveis numéricas
-scaler = StandardScaler()
-df[numeric_columns] = scaler.fit_transform(df[numeric_columns])
 
-# 4. Análise de Balanceamento da variável alvo
-print("\nDistribuição da variável 'Risk':")
-print(df['Risk'].value_counts(normalize=True))
+def load_data(path: Path = DATA_PATH) -> pd.DataFrame:
+    return pd.read_csv(path, index_col=0)
 
-# 5. Seleção de Variáveis
-X = df[['Age', 'Job', 'Credit amount', 'Duration', 'Sex', 'Housing', 'Saving accounts', 'Checking account', 'Purpose']]
-y = df['Risk']
 
-# 6. Divisão dos Dados em Treino e Teste
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+def preprocess(df: pd.DataFrame):
+    """Retorna (X numerico sem NaN, y binario)."""
+    df = df.copy()
+    df["Risk"] = df["Risk"].map({"good": 0, "bad": 1}).astype(int)
 
-# 7. Treinamento dos Modelos
-modelos = {
-    'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
-    'Gradient Boosting': GradientBoostingClassifier(),
-    'Logistic Regression': LogisticRegression()
-}
+    # NA nas contas vira uma categoria propria antes do one-hot
+    for col in ["Saving accounts", "Checking account"]:
+        df[col] = df[col].fillna("unknown")
 
-resultados = {}
+    y = df["Risk"]
+    dummies = pd.get_dummies(df[NOMINAL], drop_first=True).astype(int)
 
-for nome, modelo in modelos.items():
-    modelo.fit(X_train, y_train)
-    y_pred = modelo.predict(X_test)
-    acc = accuracy_score(y_test, y_pred)
-    auc = roc_auc_score(y_test, modelo.predict_proba(X_test)[:, 1])
-    resultados[nome] = {
-        'modelo': modelo,
-        'acuracia': acc,
-        'auc': auc,
-        'pred': y_pred
+    scaler = StandardScaler()
+    numeric_scaled = pd.DataFrame(
+        scaler.fit_transform(df[NUMERIC]), columns=NUMERIC, index=df.index
+    )
+
+    X = pd.concat([numeric_scaled, df[["Job"]], dummies], axis=1)
+    return X, y
+
+
+def train_models(X_train, X_test, y_train, y_test) -> dict:
+    modelos = {
+        "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
+        "Gradient Boosting": GradientBoostingClassifier(random_state=42),
+        "Logistic Regression": LogisticRegression(max_iter=1000),
     }
+    resultados = {}
+    for nome, modelo in modelos.items():
+        modelo.fit(X_train, y_train)
+        y_pred = modelo.predict(X_test)
+        resultados[nome] = {
+            "modelo": modelo,
+            "acuracia": accuracy_score(y_test, y_pred),
+            "auc": roc_auc_score(y_test, modelo.predict_proba(X_test)[:, 1]),
+            "pred": y_pred,
+        }
+    return resultados
 
-# 8. Avaliação do Melhor Modelo (Random Forest)
-print(f"\nMelhor modelo: Random Forest")
-print(f"Acurácia: {resultados['Random Forest']['acuracia']:.2f}")
-print(f"AUC: {resultados['Random Forest']['auc']:.2f}")
-print("\nRelatório de Classificação:")
-print(classification_report(y_test, resultados['Random Forest']['pred']))
 
-# Matriz de Confusão
-cm = confusion_matrix(y_test, resultados['Random Forest']['pred'])
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-plt.title('Matriz de Confusão - Random Forest')
-plt.xlabel('Predito')
-plt.ylabel('Real')
-plt.show()
+def plot_confusion(y_test, y_pred, path: Path):
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure()
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+    plt.title("Matriz de Confusao - Random Forest")
+    plt.xlabel("Predito")
+    plt.ylabel("Real")
+    plt.tight_layout()
+    plt.savefig(path)
+    plt.close()
 
-# 9. Curva ROC dos modelos
-plt.figure(figsize=(8, 6))
-for nome, res in resultados.items():
-    RocCurveDisplay.from_estimator(res['modelo'], X_test, y_test, name=nome, ax=plt.gca())
-plt.title("Curva ROC - Comparação entre Modelos")
-plt.grid()
-plt.show()
 
-# 10. Validação Cruzada com Random Forest
-scores_cv = cross_val_score(resultados['Random Forest']['modelo'], X, y, cv=5, scoring='accuracy')
-print(f"\nAcurácia média com validação cruzada (Random Forest): {scores_cv.mean():.2f}")
+def plot_roc(resultados, X_test, y_test, path: Path):
+    plt.figure(figsize=(8, 6))
+    for nome, res in resultados.items():
+        RocCurveDisplay.from_estimator(res["modelo"], X_test, y_test, name=nome, ax=plt.gca())
+    plt.title("Curva ROC - Comparacao entre Modelos")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(path)
+    plt.close()
 
-# 11. Visualização da Importância das Variáveis
-importances = resultados['Random Forest']['modelo'].feature_importances_
-plt.figure(figsize=(10, 6))
-plt.bar(X.columns, importances)
-plt.title("Importância das Features - Random Forest")
-plt.ylabel("Score")
-plt.xlabel("Variáveis")
-plt.xticks(rotation=45)
-plt.tight_layout()
-plt.show()
 
-# 12. Comparação entre os modelos – Acurácia e AUC
-metricas_df = pd.DataFrame({
-    'Modelo': list(resultados.keys()),
-    'Acurácia': [res['acuracia'] for res in resultados.values()],
-    'AUC': [res['auc'] for res in resultados.values()]
-})
+def plot_importance(model, feature_names, path: Path):
+    importances = model.feature_importances_
+    order = np.argsort(importances)[::-1]
+    plt.figure(figsize=(10, 6))
+    plt.bar(np.array(feature_names)[order], importances[order])
+    plt.title("Importancia das Features - Random Forest")
+    plt.ylabel("Score")
+    plt.xlabel("Variaveis")
+    plt.xticks(rotation=60, ha="right")
+    plt.tight_layout()
+    plt.savefig(path)
+    plt.close()
 
-# Plotando as métricas
-fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-sns.barplot(data=metricas_df, x='Modelo', y='Acurácia', ax=axes[0])
-axes[0].set_title('Comparação de Acurácia')
-axes[0].set_ylim(0, 1)
+def plot_metrics(resultados, path: Path):
+    metricas_df = pd.DataFrame({
+        "Modelo": list(resultados.keys()),
+        "Acuracia": [r["acuracia"] for r in resultados.values()],
+        "AUC": [r["auc"] for r in resultados.values()],
+    })
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    sns.barplot(data=metricas_df, x="Modelo", y="Acuracia", ax=axes[0])
+    axes[0].set_title("Comparacao de Acuracia")
+    axes[0].set_ylim(0, 1)
+    sns.barplot(data=metricas_df, x="Modelo", y="AUC", ax=axes[1])
+    axes[1].set_title("Comparacao de AUC")
+    axes[1].set_ylim(0, 1)
+    plt.suptitle("Desempenho dos Modelos de Classificacao")
+    plt.tight_layout()
+    plt.savefig(path)
+    plt.close()
 
-sns.barplot(data=metricas_df, x='Modelo', y='AUC', ax=axes[1])
-axes[1].set_title('Comparação de AUC')
-axes[1].set_ylim(0, 1)
 
-plt.suptitle('Desempenho dos Modelos de Classificação')
-plt.tight_layout()
-plt.show()
+def main():
+    IMGS_DIR.mkdir(parents=True, exist_ok=True)
+
+    df = load_data()
+    logger.info(f"Dataset: {df.shape}")
+    logger.info("Distribuicao de Risk:\n%s", df["Risk"].value_counts(normalize=True).to_string())
+
+    X, y = preprocess(df)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+
+    resultados = train_models(X_train, X_test, y_train, y_test)
+
+    rf = resultados["Random Forest"]
+    logger.info("Melhor modelo: Random Forest")
+    logger.info(f"Acuracia: {rf['acuracia']:.2f} | AUC: {rf['auc']:.2f}")
+    logger.info("Relatorio de Classificacao:\n%s", classification_report(y_test, rf["pred"]))
+
+    plot_confusion(y_test, rf["pred"], IMGS_DIR / "matriz_confusao_rf.png")
+    plot_roc(resultados, X_test, y_test, IMGS_DIR / "curva_roc_modelos.png")
+    plot_importance(rf["modelo"], X.columns, IMGS_DIR / "importancia_variaveis_rf.png")
+    plot_metrics(resultados, IMGS_DIR / "comparacao_metricas.png")
+
+    scores_cv = cross_val_score(rf["modelo"], X, y, cv=5, scoring="accuracy")
+    logger.info(f"Acuracia media (CV 5-fold, RF): {scores_cv.mean():.2f}")
+    logger.info(f"Figuras salvas em: {IMGS_DIR}")
+
+
+if __name__ == "__main__":
+    main()
