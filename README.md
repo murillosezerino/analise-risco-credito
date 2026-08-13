@@ -72,5 +72,5 @@ Study repository — meant as a baseline comparison, not a production model. See
 
 ## Author
 
-Murillo Sezerino — Data Engineer & Analytics
+Murillo Sezerino — Analytics Engineer
 [murillosezerino.com](https://murillosezerino.com) · [LinkedIn](https://linkedin.com/in/murillosezerino)
